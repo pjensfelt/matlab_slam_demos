@@ -31,6 +31,8 @@ P = P0;
 
 firstIter = 0;
 
+mappedL = [];
+
 while (run)
     
     % Update true pose
@@ -52,13 +54,13 @@ while (run)
         dnoise = (tspeed*dT*tdStd)*randn;
         
         X(1) = X(1) + (tspeed*dT+dnoise);
-                
+        
         D = tspeed*dT;
         
         A = [1];
         
         W = [1];
-
+        
         Q = diag([(D*tdStd)^2]);
         
         P = A*P*A' + W*Q*W';
@@ -79,18 +81,44 @@ while (run)
                 continue
             end
             
-            zRho = sqrt((xL(l)-X(1)).^2+(yL(l)).^2);
+            %disp(sprintf('Updating with measurement of landmark %d',l))
+            
+            xpos = find(mappedL==l);
+            
+            if isempty(xpos)
+                % First time we see this landmark. Need to extend state
+                % vector
+                mappedL = [mappedL l];
+                xpos = length(X) + 1;
+                X(end+1,1) = X(1,1) + rho(l)*cos(phi(l));
+                X(end+1,1) = 0 + rho(l)*sin(phi(l));
+                P = [P zeros(size(P,1),2);
+                    zeros(2,size(P,2)) 1e10*eye(2)];
+            else
+                xpos = 2 * xpos;
+            end
+            
+            zRho = sqrt((X(xpos)-X(1)).^2+X(xpos+1).^2);
             
             % Use range measurement
             if zRhoStd > 0
-                H = [H; [-(xL(l) - X(1))/zRho]];
+                Hnew = zeros(1, length(X));
+                Hnew(1) = [-(X(xpos) - X(1))/zRho];
+                if ~isempty(mappedL)
+                    Hnew(xpos) = [(X(xpos) - X(1))/zRho];
+                    Hnew(xpos+1) = [X(xpos+1)/zRho];
+                end
+                if ~isempty(H) && size(Hnew,2) > size(H,2)
+                    H = [H zeros(size(H,1), 2)];
+                end
+                H = [H; Hnew];
                 innov = [innov; rho(l) - zRho];
                 R = [R zRhoStd^2];
             end
             
             % Use bearing measurement
             if zPhiStd > 0
-                zPhi = atan2(yL(l),xL(l)-X(1));
+                zPhi = atan2(X(xpos+1),X(xpos)-X(1));
                 dPhi = phi(l) - zPhi;
                 while dPhi > pi
                     dPhi = dPhi - 2.0*pi;
@@ -98,7 +126,17 @@ while (run)
                 while dPhi < -pi
                     dPhi = dPhi + 2.0*pi;
                 end
-                H = [H; [ (yL(l))/zRho^2 ]];
+                Hnew = zeros(1, length(X));
+                Hnew(1) = yL(l)/zRho^2;
+                
+                if ~isempty(mappedL)
+                    Hnew(xpos) = -X(xpos+1)/zRho^2;
+                    Hnew(xpos+1) = (X(xpos)-X(1))/zRho^2;
+                end
+                if ~isempty(H) && size(Hnew,2) > size(H,2)
+                    H = [H zeros(size(H,1), 2)];
+                end
+                H = [H; Hnew];
                 innov = [innov; dPhi];
                 R = [R zPhiStd^2];
             end
@@ -110,8 +148,8 @@ while (run)
             
             K = P*H'*inv(H*P*H' + R);
             X = X + K*innov;
-            P = (eye(1) - K*H)*P;
-            
+            P = (eye(size(P,1), size(P,2)) - K*H)*P;
+            %det(P)
         end
         
     end
@@ -120,13 +158,8 @@ while (run)
         xt=0;
         X = X0;
         P = P0;
+        mappedL = [];
         reset = 0;
-    end
-    
-    if setUniform
-        X = zeros(1,1);
-        P = 1e4*eye(1);
-        setUniform = 0;
     end
     
     if addDisturbance
@@ -138,13 +171,7 @@ while (run)
         delete(h);
     end
     hold on
-    h = [plot(X(1,:),0,'bx') display_robot(xt,'k')];
-
-    % Display Gaussian uncertainty for robot
-    xsig = sqrt(P(1));
-    xgauss = linspace(X(1)-5*xsig, X(1)+5*xsig, 100);
-    ygauss = exp(-0.5*((xgauss-X(1))/xsig).^2)/xsig/sqrt(2*pi);
-    h = [h plot(xgauss, 0.01+ygauss, 'b')];
+    h = [plot(X(1),0,'bx') display_robot(xt,'k')];
     
     if zRhoStd > 0 || zPhiStd > 0
         for k=1:NL
@@ -159,19 +186,30 @@ while (run)
     end
     
     if dispGaussApprox
-        %h = [h plot_2dgauss(X(1:2), P(1:2,1:2), 'b', true)];
-        dirLen = 0.5;
+        % Display Gaussian uncertainty for robot
+        xsig = sqrt(P(1));
+        xgauss = linspace(X(1)-5*xsig, X(1)+5*xsig, 100);
+        ygauss = exp(-0.5*((xgauss-X(1))/xsig).^2)/xsig/sqrt(2*pi);
+        h = [h plot(xgauss, 0.01+ygauss, 'b')];
+        
+        for k=1:length(mappedL)
+            xl = X((2*k):(2*k+1));
+            Pl = P((2*k):(2*k+1),(2*k):(2*k+1));
+            %det(Pl)
+            h = [h plot_2dgauss(xl, Pl, 'b', true)];
+        end
+    else
+        if ~isempty(mappedL)
+            for k=1:length(mappedL)
+                h = [h plot(X(2*k),X(2*k+1),'or')];
+            end
+        end
     end
     
     hold off
     
-    axis([-2 22 0 10])
+    axis([-2 12 0 14])
     
     drawnow;
     
 end
-
-
-
-
-
