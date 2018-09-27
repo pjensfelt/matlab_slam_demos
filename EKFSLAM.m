@@ -42,12 +42,7 @@ while (run)
     rho = sqrt((xL-xt).^2+yL.^2) + rhoStd*randn(1,NL);
     phi = atan2(yL,xL-xt) + phiStd*randn(1,NL);
     
-    if forceUpdate == 1 || abs(tspeed) > 1e-6
-        
-        if forceUpdate == 1
-            disp('Asked to force an update')
-        end
-        forceUpdate = 0;
+    if forceUpdate == 1 || superGPS == 1 || abs(tspeed) > 1e-6
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Predict motion
@@ -72,74 +67,94 @@ while (run)
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Measurement update
         
-        
-        % Loop over the measurements
-        for l = 1:NL
+        if forceUpdate == 1 || abs(tspeed) > 1e-6
             
-            % Check if this landmark is used or not
-            if lMask(l) == 0
-                continue
+            if forceUpdate == 1
+                disp('Asked to force an update')
             end
+            forceUpdate = 0;
             
-            %disp(sprintf('Updating with measurement of landmark %d',l))
             
-            xpos = find(mappedL==l);
-            
-            if isempty(xpos)
-                % First time we see this landmark. Need to extend state
-                % vector
-                mappedL = [mappedL l];
-                xpos = length(X) + 1;
-                X(end+1,1) = X(1,1) + rho(l)*cos(phi(l));
-                X(end+1,1) = 0 + rho(l)*sin(phi(l));
-                P = [P zeros(size(P,1),2);
-                    zeros(2,size(P,2)) 1e10*eye(2)];
-            else
-                xpos = 2 * xpos;
-            end
-            
-            zRho = sqrt((X(xpos)-X(1)).^2+X(xpos+1).^2);
-            
-            % Use range measurement
-            if zRhoStd > 0
-                Hnew = zeros(1, length(X));
-                Hnew(1) = [-(X(xpos) - X(1))/zRho];
-                if ~isempty(mappedL)
-                    Hnew(xpos) = [(X(xpos) - X(1))/zRho];
-                    Hnew(xpos+1) = [X(xpos+1)/zRho];
-                end
-                if ~isempty(H) && size(Hnew,2) > size(H,2)
-                    H = [H zeros(size(H,1), 2)];
-                end
-                H = [H; Hnew];
-                innov = [innov; rho(l) - zRho];
-                R = [R zRhoStd^2];
-            end
-            
-            % Use bearing measurement
-            if zPhiStd > 0
-                zPhi = atan2(X(xpos+1),X(xpos)-X(1));
-                dPhi = phi(l) - zPhi;
-                while dPhi > pi
-                    dPhi = dPhi - 2.0*pi;
-                end
-                while dPhi < -pi
-                    dPhi = dPhi + 2.0*pi;
-                end
-                Hnew = zeros(1, length(X));
-                Hnew(1) = yL(l)/zRho^2;
+            % Loop over the measurements
+            for l = 1:NL
                 
-                if ~isempty(mappedL)
-                    Hnew(xpos) = -X(xpos+1)/zRho^2;
-                    Hnew(xpos+1) = (X(xpos)-X(1))/zRho^2;
+                % Check if this landmark is used or not
+                if lMask(l) == 0
+                    continue
                 end
-                if ~isempty(H) && size(Hnew,2) > size(H,2)
-                    H = [H zeros(size(H,1), 2)];
+                
+                %disp(sprintf('Updating with measurement of landmark %d',l))
+                
+                xpos = find(mappedL==l);
+                
+                if isempty(xpos)
+                    % First time we see this landmark. Need to extend state
+                    % vector
+                    mappedL = [mappedL l];
+                    xpos = length(X) + 1;
+                    X(end+1,1) = X(1,1) + rho(l)*cos(phi(l));
+                    X(end+1,1) = 0 + rho(l)*sin(phi(l));
+                    P = [P zeros(size(P,1),2);
+                        zeros(2,size(P,2)) 1e10*eye(2)];
+                else
+                    xpos = 2 * xpos;
                 end
-                H = [H; Hnew];
-                innov = [innov; dPhi];
-                R = [R zPhiStd^2];
+                
+                zRho = sqrt((X(xpos)-X(1)).^2+X(xpos+1).^2);
+                
+                % Use range measurement
+                if zRhoStd > 0
+                    Hnew = zeros(1, length(X));
+                    Hnew(1) = [-(X(xpos) - X(1))/zRho];
+                    if ~isempty(mappedL)
+                        Hnew(xpos) = [(X(xpos) - X(1))/zRho];
+                        Hnew(xpos+1) = [X(xpos+1)/zRho];
+                    end
+                    if ~isempty(H) && size(Hnew,2) > size(H,2)
+                        H = [H zeros(size(H,1), 2)];
+                    end
+                    H = [H; Hnew];
+                    innov = [innov; rho(l) - zRho];
+                    R = [R zRhoStd^2];
+                end
+                
+                % Use bearing measurement
+                if zPhiStd > 0
+                    zPhi = atan2(X(xpos+1),X(xpos)-X(1));
+                    dPhi = phi(l) - zPhi;
+                    while dPhi > pi
+                        dPhi = dPhi - 2.0*pi;
+                    end
+                    while dPhi < -pi
+                        dPhi = dPhi + 2.0*pi;
+                    end
+                    Hnew = zeros(1, length(X));
+                    Hnew(1) = yL(l)/zRho^2;
+                    
+                    if ~isempty(mappedL)
+                        Hnew(xpos) = -X(xpos+1)/zRho^2;
+                        Hnew(xpos+1) = (X(xpos)-X(1))/zRho^2;
+                    end
+                    if ~isempty(H) && size(Hnew,2) > size(H,2)
+                        H = [H zeros(size(H,1), 2)];
+                    end
+                    H = [H; Hnew];
+                    innov = [innov; dPhi];
+                    R = [R zPhiStd^2];
+                end
             end
+        end
+        
+        if superGPS
+            superGPS = 0;
+            Hnew = zeros(1, length(X));
+            Hnew(1) = 1;
+            if ~isempty(H) && size(Hnew,2) > size(H,2)
+                H = [H zeros(size(H,1), 2)];
+            end
+            H = [H; Hnew];
+            innov = [innov; xt - X(1)];
+            R = [R 1e-6];
         end
         
         if ~isempty(innov)
@@ -165,6 +180,11 @@ while (run)
     if addDisturbance
         xt = xt + 0.25*rand(1,1);
         addDisturbance = 0;
+    end
+    
+    if injectNoise
+        injectNoise = 0;
+        P(1) = P(1) + 0.1;
     end
     
     if ~isempty(h)

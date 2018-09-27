@@ -32,7 +32,7 @@ tspeed = 0;
 % Factor for calculting the standard deviation in the distance traveled
 % noise proportinal to the distance traveled since last iteration
 global tdStd
-tdStd = 0.1;
+tdStd = 0.25;
 
 % Range measurement std (independent of range)
 global rhoStd
@@ -67,16 +67,22 @@ global dispGaussApprox
 dispGaussApprox = 0;
 
 global zRhoStd
-zRhoStd = -1;
+zRhoStd = 1;
 
 global zPhiStd
-zPhiStd = -10.0*pi/180;
+zPhiStd = 10.0*pi/180;
 
 global lMask
-lMask = ones(1,4);
+lMask = zeros(1,4);
 
 global forceUpdate
 forceUpdate = 0;
 
 global Length
 Length = 1;
+
+global injectNoise
+injectNoise = 0;
+
+global superGPS
+superGPS = 0;

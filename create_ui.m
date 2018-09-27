@@ -23,6 +23,8 @@ global zRhoStd
 global zPhiStd
 global lMask
 global forceUpdate
+global injectNoise
+global superGPS
 
 % Create a figure and axes
 ax = axes('Units','pixels');
@@ -52,6 +54,14 @@ btn = uicontrol('Style', 'pushbutton', 'String', 'Update',...
     'Position', [5 115 50 20],...
     'Callback', @clb_forceupdate);
 
+btn = uicontrol('Style', 'pushbutton', 'String', 'Inject',...
+    'Position', [5 150 50 20],...
+    'Callback', @clb_injectNoise);
+
+btn = uicontrol('Style', 'pushbutton', 'String', 'superGPS',...
+    'Position', [5 185 50 20],...
+    'Callback', @clb_superGPS);
+
 tbtn = uicontrol('Style', 'togglebutton', 'String', 'DispGauss',...
     'Position', [115 5 70 20],...
     'Callback', @clb_dispgauss);
@@ -67,6 +77,8 @@ sld = uicontrol('Style', 'slider',...
 zrhostd_txt = uicontrol('Style','text',...
     'Position',[360 20 80 20],...
     'String','No range');
+sld.Value = 15;
+clb_zrhostd(sld,0);
 
 % Create slider
 sld = uicontrol('Style', 'slider',...
@@ -78,6 +90,8 @@ sld = uicontrol('Style', 'slider',...
 zphistd_txt = uicontrol('Style','text',...
     'Position',[445 20 80 20],...
     'String','No bearning');
+sld.Value = 15;
+clb_zphistd(sld,0);
 
 % Create push button
 btn = uicontrol('Style', 'pushbutton', 'String', 'Stop',...
@@ -114,7 +128,6 @@ tbtn = uicontrol('Style', 'togglebutton', 'String', 'L4',...
     'Position', [755 180 40 20],...
     'Callback', @clb_L4);
 tbtn.Value = lMask(4);
-
 
     function clb_tspeed(source,callbackdata)
         tspeed = 2.0*source.Value;
@@ -208,5 +221,15 @@ tbtn.Value = lMask(4);
     function clb_forceupdate(source,callbackdata)
         forceUpdate = 1;
         disp(sprintf('Forcing an update'))
+    end
+
+    function clb_injectNoise(source,callbackdata)
+        injectNoise = 1;
+        disp(sprintf('Injecting noise'))
+    end
+
+    function clb_superGPS(source,callbackdata)
+        superGPS = 1;
+        disp(sprintf('Acquired super GPS measurement'))
     end
 end
