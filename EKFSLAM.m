@@ -51,13 +51,13 @@ while (run)
         X(1) = X(1) + (tspeed*dT+dnoise);
         
         D = tspeed*dT;
-        
-        A = [1];
-        
-        W = [1];
-        
+
+        A = eye(length(X),length(X));
+        W = zeros(length(X),1);
+        A(1,1) = 1;
+        W(1,1) = 1;
         Q = diag([(D*tdStd)^2]);
-        
+
         P = A*P*A' + W*Q*W';
         
         H=[];
